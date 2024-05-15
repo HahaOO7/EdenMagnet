@@ -1,0 +1,6 @@
+name: EdenMagnet
+version: '${project.version}'
+main: at.haha007.edenmagnet.EdenMagnetPlugin
+api-version: 1.19
+authors: [ Haha007 ]
+load: STARTUP
