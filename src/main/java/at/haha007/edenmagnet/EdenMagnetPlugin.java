@@ -129,6 +129,7 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
         ItemStack item = event.getCurrentItem();
         if (item == null) return;
         ItemMeta meta = item.getItemMeta();
+        if(meta == null) return;
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         PersistentDataContainer container = pdc.get(guiKey, PersistentDataType.TAG_CONTAINER);
         if (container == null) return;
