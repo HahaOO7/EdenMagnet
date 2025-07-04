@@ -24,6 +24,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -121,6 +122,24 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
         event.setCancelled(true);
     }
 
+    @EventHandler
+    private void onInventoryClose(InventoryCloseEvent event) {
+        if (event.getInventory() == null) return;
+        if (event.getInventory().getSize() != 9)
+            return;
+        ItemStack item = event.getInventory().getItem(0);
+        if (item == null) return;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+        PersistentDataContainer container = pdc.get(guiKey, PersistentDataType.TAG_CONTAINER);
+        if (container == null) return;
+        MagnetContainer magnetContainer = new MagnetContainer(event.getPlayer().getWorld());
+        BlockMagnet magnet = magnetContainer.fromPrimitive(container, pdc.getAdapterContext());
+        //display magnet for 10 seconds by repeating task every 10 ticks
+        magnetProvider.getMagnet(magnet.block()).ifPresent(m -> m.showRadiusUsingDisplayEntities(200L));
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void onInventoryClick(InventoryClickEvent event) {
         if (event.getClickedInventory() == null) return;
@@ -129,7 +148,7 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
         ItemStack item = event.getCurrentItem();
         if (item == null) return;
         ItemMeta meta = item.getItemMeta();
-        if(meta == null) return;
+        if (meta == null) return;
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         PersistentDataContainer container = pdc.get(guiKey, PersistentDataType.TAG_CONTAINER);
         if (container == null) return;
@@ -142,7 +161,9 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
         int radius = slot + 1;
         if (magnet.radius() == radius) return;
         magnetProvider.removeMagnet(magnet);
+        magnet.hideRadius();
         magnet = new BlockMagnet(magnet.world(), radius, magnet.x(), magnet.y(), magnet.z());
+        magnet.showRadiusUsingDisplayEntities(200L);
         magnetProvider.addMagnet(magnet);
         ItemStack[] contents = createMagnetInv(magnet).getContents();
         Bukkit.getScheduler().runTask(this, () -> event.getInventory().setContents(contents));
