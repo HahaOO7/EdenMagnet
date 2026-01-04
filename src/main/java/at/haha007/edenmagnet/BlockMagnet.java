@@ -37,20 +37,20 @@ public final class BlockMagnet {
         this.z = z;
         cubeEdges = new Matrix4f[]{
                 // X
-                new Matrix4f().identity().translate(-radius, 0f - radius, 0f - radius).scale(radius * 2f + 1.1f, .1f, .1f),
-                new Matrix4f().identity().translate(-radius, 1f + radius, 0f - radius).scale(radius * 2f + 1.1f, .1f, .1f),
-                new Matrix4f().identity().translate(-radius, 0f - radius, 1f + radius).scale(radius * 2f + 1.1f, .1f, .1f),
-                new Matrix4f().identity().translate(-radius, 1f + radius, 1f + radius).scale(radius * 2f + 1.1f, .1f, .1f),
+                new Matrix4f().identity().translate(-radius, 0f - radius, 0f - radius).scale(radius * 2f + 1f, .1f, .1f),
+                new Matrix4f().identity().translate(-radius, .9f + radius, 0f - radius).scale(radius * 2f + 1f, .1f, .1f),
+                new Matrix4f().identity().translate(-radius, 0f - radius, .9f + radius).scale(radius * 2f + 1f, .1f, .1f),
+                new Matrix4f().identity().translate(-radius, .9f + radius, .9f + radius).scale(radius * 2f + 1f, .1f, .1f),
                 // Y
-                new Matrix4f().identity().translate(0f - radius, -radius, 0f - radius).scale(.1f, radius * 2f + 1.1f, .1f),
-                new Matrix4f().identity().translate(1f + radius, -radius, 0f - radius).scale(.1f, radius * 2f + 1.1f, .1f),
-                new Matrix4f().identity().translate(0f - radius, -radius, 1f + radius).scale(.1f, radius * 2f + 1.1f, .1f),
-                new Matrix4f().identity().translate(1f + radius, -radius, 1f + radius).scale(.1f, radius * 2f + 1.1f, .1f),
+                new Matrix4f().identity().translate(0f - radius, -radius, 0f - radius).scale(.1f, radius * 2f + 1f, .1f),
+                new Matrix4f().identity().translate(.9f + radius, -radius, 0f - radius).scale(.1f, radius * 2f + 1f, .1f),
+                new Matrix4f().identity().translate(0f - radius, -radius, .9f + radius).scale(.1f, radius * 2f + 1f, .1f),
+                new Matrix4f().identity().translate(.9f + radius, -radius, .9f + radius).scale(.1f, radius * 2f + 1f, .1f),
                 // Z
-                new Matrix4f().identity().translate(0f - radius, 0f - radius, -radius).scale(.1f, .1f, radius * 2f + 1.1f),
-                new Matrix4f().identity().translate(1f + radius, 0f - radius, -radius).scale(.1f, .1f, radius * 2f + 1.1f),
-                new Matrix4f().identity().translate(0f - radius, 1f + radius, -radius).scale(.1f, .1f, radius * 2f + 1.1f),
-                new Matrix4f().identity().translate(1f + radius, 1f + radius, -radius).scale(.1f, .1f, radius * 2f + 1.1f),
+                new Matrix4f().identity().translate(0f - radius, 0f - radius, -radius).scale(.1f, .1f, radius * 2f + 1f),
+                new Matrix4f().identity().translate(.9f + radius, 0f - radius, -radius).scale(.1f, .1f, radius * 2f + 1f),
+                new Matrix4f().identity().translate(0f - radius, .9f + radius, -radius).scale(.1f, .1f, radius * 2f + 1f),
+                new Matrix4f().identity().translate(.9f + radius, .9f + radius, -radius).scale(.1f, .1f, radius * 2f + 1f),
         };
     }
 
