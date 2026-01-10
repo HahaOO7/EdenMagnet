@@ -106,6 +106,8 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if(event.getPlayer().isSneaking() && !event.getPlayer().getInventory().getItemInMainHand().isEmpty())
+            return;
         Block block = event.getClickedBlock();
         if (block == null) return;
         if (block.getType() != Material.FLETCHING_TABLE) return;
