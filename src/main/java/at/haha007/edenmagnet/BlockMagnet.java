@@ -7,24 +7,18 @@ import org.bukkit.World;
 import org.bukkit.block.*;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
-import org.bukkit.entity.Item;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.BoundingBox;
-import org.bukkit.util.Vector;
 import org.joml.Matrix4f;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.Objects;
 
 public final class BlockMagnet {
     private final World world;
     private final int radius;
-    private final int x;
-    private final int y;
-    private final int z;
+    private final int magnetX;
+    private final int magnetY;
+    private final int magnetZ;
     private final BlockDisplay[] currentEntities = new BlockDisplay[12];
     private BukkitTask removeLaterTask;
     private final Matrix4f[] cubeEdges;
@@ -32,9 +26,9 @@ public final class BlockMagnet {
     public BlockMagnet(World world, int radius, int x, int y, int z) {
         this.world = world;
         this.radius = radius;
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.magnetX = x;
+        this.magnetY = y;
+        this.magnetZ = z;
         cubeEdges = new Matrix4f[]{
                 // X
                 new Matrix4f().identity().translate(-radius, 0f - radius, 0f - radius).scale(radius * 2f + 1f, .1f, .1f),
@@ -55,54 +49,24 @@ public final class BlockMagnet {
     }
 
     public void runMagnet() {
-        Block block = world.getBlockAt(x, y, z);
+        Block block = world.getBlockAt(magnetX, magnetY, magnetZ);
         BlockState targetBlock = block.getRelative(BlockFace.DOWN).getState(false);
         if (!(targetBlock instanceof Container container)) return;
-
-        Collection<Item> items = block.getLocation().toCenterLocation().getNearbyEntitiesByType(Item.class, radius + .5);
-        Inventory inventory = container.getInventory();
-
-        Vector centerPos = new Vector(x + .5, y + .5, z + .5);
-        int maxTries = 5;
-        for (Item item : items) {
-            Vector delta = centerPos.clone().subtract(item.getLocation().toVector());
-            double distance = maximumDistance(delta);
-            if (distance > .5) {
-                item.setVelocity(delta.multiply(.15));
-                item.setGravity(false);
-            } else {
-                ItemStack stack = item.getItemStack();
-                HashMap<Integer, ItemStack> remaining = inventory.addItem(stack);
-                stack.setAmount(remaining.values().stream().mapToInt(ItemStack::getAmount).sum());
-                item.setItemStack(stack);
-                item.setVelocity(delta.multiply(.15));
-                item.setGravity(false);
-                if (remaining.isEmpty()) continue;
-                maxTries--;
-                if (maxTries <= 0) break;
-            }
-        }
-    }
-
-    private double maximumDistance(Vector delta) {
-        double dx = Math.abs(delta.getX());
-        double dy = Math.abs(delta.getY());
-        double dz = Math.abs(delta.getZ());
-        return Math.max(dx, Math.max(dy, dz)) - .5;
+        EdenMagnetPlugin.INSTANCE.magnetRunner().run(block, radius, container.getInventory());
     }
 
     public Block block() {
-        return world.getBlockAt(x, y, z);
+        return world.getBlockAt(magnetX, magnetY, magnetZ);
     }
 
     public BoundingBox boundingBox() {
         return new BoundingBox(
-                (double) x - radius,
-                (double) y - radius,
-                (double) z - radius,
-                (double) x + radius + 1,
-                (double) y + radius + 1,
-                (double) z + radius + 1);
+                (double) magnetX - radius,
+                (double) magnetY - radius,
+                (double) magnetZ - radius,
+                (double) magnetX + radius + 1,
+                (double) magnetY + radius + 1,
+                (double) magnetZ + radius + 1);
     }
 
     public void showRadiusUsingParticles() {
@@ -174,7 +138,7 @@ public final class BlockMagnet {
         };
         for (int i = 0; i < cubeEdges.length; i++) {
             Matrix4f cubeEdge = cubeEdges[i];
-            BlockDisplay entity = world.spawn(new Location(world, x, y, z), BlockDisplay.class, e -> {
+            BlockDisplay entity = world.spawn(new Location(world, magnetX, magnetY, magnetZ), BlockDisplay.class, e -> {
                 e.setPersistent(false);
                 e.setBlock(material.createBlockData());
                 e.setTransformationMatrix(cubeEdge);
@@ -204,15 +168,15 @@ public final class BlockMagnet {
     }
 
     public int x() {
-        return x;
+        return magnetX;
     }
 
     public int y() {
-        return y;
+        return magnetY;
     }
 
     public int z() {
-        return z;
+        return magnetZ;
     }
 
     @Override
@@ -222,14 +186,14 @@ public final class BlockMagnet {
         var that = (BlockMagnet) obj;
         return Objects.equals(this.world, that.world) &&
                 this.radius == that.radius &&
-                this.x == that.x &&
-                this.y == that.y &&
-                this.z == that.z;
+                this.magnetX == that.magnetX &&
+                this.magnetY == that.magnetY &&
+                this.magnetZ == that.magnetZ;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(world, radius, x, y, z);
+        return Objects.hash(world, radius, magnetX, magnetY, magnetZ);
     }
 
     @Override
@@ -237,9 +201,9 @@ public final class BlockMagnet {
         return "BlockMagnet[" +
                 "world=" + world + ", " +
                 "radius=" + radius + ", " +
-                "x=" + x + ", " +
-                "y=" + y + ", " +
-                "z=" + z + ']';
+                "x=" + magnetX + ", " +
+                "y=" + magnetY + ", " +
+                "z=" + magnetZ + ']';
     }
 
 }

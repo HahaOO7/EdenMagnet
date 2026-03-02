@@ -1,12 +1,13 @@
 package at.haha007.edenmagnet;
 
-import at.haha007.edencommands.CommandRegistry;
-import at.haha007.edencommands.argument.player.PlayerArgument;
-import at.haha007.edencommands.tree.ArgumentCommandNode;
-import at.haha007.edencommands.tree.LiteralCommandNode;
 import com.griefdefender.api.GriefDefender;
 import com.griefdefender.api.claim.Claim;
 import com.griefdefender.api.claim.TrustTypes;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
+import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.Style;
@@ -16,13 +17,12 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -31,21 +31,25 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
+import static io.papermc.paper.command.brigadier.Commands.argument;
+import static io.papermc.paper.command.brigadier.Commands.literal;
 
-    public static Plugin INSTANCE;
+public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
+    private static final int TICK_RATE = 5;
+
+    public static EdenMagnetPlugin INSTANCE;
     private ChunkedMagnetProvider magnetProvider;
-    private static final int tickRate = 5;
-    private CommandRegistry commandRegistry;
     private NamespacedKey magnetKey;
     private NamespacedKey guiKey;
+    private MagnetRunner magnetRunner = new PhysicsMagnetRunner();
 
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     public void onEnable() {
         INSTANCE = this;
@@ -55,29 +59,79 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
         magnetProvider = new ChunkedMagnetProvider();
         Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
             magnetProvider.streamLoadedMagnets().forEach(BlockMagnet::runMagnet);
-        }, tickRate, tickRate);
+        }, TICK_RATE, TICK_RATE);
+        reload();
 
-        commandRegistry = new CommandRegistry(this);
-        LiteralCommandNode cmd = LiteralCommandNode.builder("edenmagnet")
-                .then(ArgumentCommandNode.builder("player", PlayerArgument.builder().build()).executor(c -> {
-                    Player player = c.parameter("player");
-                    player.getInventory().addItem(createMagnetItem());
-                    c.sender().sendMessage(Component.text("Gave magnet to " + player.getName() + "."));
-                })).executor(c -> {
-                    c.sender().sendMessage("/edenmagnet <player>");
-                }).requires(CommandRegistry.permission("edenmagnet.command"))
-                .build();
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
+            LiteralArgumentBuilder<CommandSourceStack> command = literal("edenmagnet")
+                    .requires(c -> c.getSender().hasPermission("edenmagnet.command"))
+                    .then(literal("reload").executes(c -> {
+                        reload();
+                        c.getSource().getSender().sendMessage(Component.text("Reloaded magnets config."));
+                        return 1;
+                    }))
+                    .then(argument("player", ArgumentTypes.player()).executes(c -> {
+                        final PlayerSelectorArgumentResolver targetResolver = c.getArgument("player", PlayerSelectorArgumentResolver.class);
+                        final Player player = targetResolver.resolve(c.getSource()).getFirst();
+                        player.getInventory().addItem(createMagnetItem());
+                        c.getSource().getSender().sendMessage(Component.text("Gave magnet to " + player.getName() + "."));
+                        return 1;
+                    }))
+                    .executes(c -> {
+                        c.getSource().getSender().sendMessage("/edenmagnet <player>");
+                        c.getSource().getSender().sendMessage("/edenmagnet reload");
+                        return 1;
+                    });
 
-        commandRegistry.register(cmd);
+            commands.registrar().register(command.build());
+        });
+    }
+
+    private void reload() {
+        reloadConfig();
+        FileConfiguration config = getConfig();
+        String type = config.getString("type", "NULL");
+        switch (type) {
+            case "PHYSICS":
+                magnetRunner = new PhysicsMagnetRunner();
+                break;
+            case "ANIMATION":
+                magnetRunner = new AnimationMagnetRunner();
+                break;
+            default:
+                config.set("type", "PHYSICS");
+                config.setComments("type", List.of("The type of magnet to use. Can be PHYSICS or ANIMATION."));
+                saveConfig();
+                break;
+        }
     }
 
     @Override
     public void onDisable() {
         magnetProvider.saveAll();
-        commandRegistry.destroy();
     }
 
     //BLOCK LISTENERS
+
+    @EventHandler
+    private void onPiston(BlockPistonExtendEvent event) {
+        for (Block block : event.getBlocks()) {
+            Optional<BlockMagnet> om = magnetProvider.getMagnet(block);
+            if (om.isEmpty()) continue;
+            event.setCancelled(true);
+            return;
+        }
+    }
+
+    @EventHandler
+    private void onPiston(BlockPistonRetractEvent event) {
+        for (Block block : event.getBlocks()) {
+            Optional<BlockMagnet> om = magnetProvider.getMagnet(block);
+            if (om.isEmpty()) continue;
+            event.setCancelled(true);
+            return;
+        }
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void onPlaceBlock(BlockPlaceEvent event) {
@@ -106,7 +160,7 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     private void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if(event.getPlayer().isSneaking() && !event.getPlayer().getInventory().getItemInMainHand().isEmpty())
+        if (event.getPlayer().isSneaking() && !event.getPlayer().getInventory().getItemInMainHand().isEmpty())
             return;
         Block block = event.getClickedBlock();
         if (block == null) return;
@@ -126,7 +180,6 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     private void onInventoryClose(InventoryCloseEvent event) {
-        if (event.getInventory() == null) return;
         if (event.getInventory().getSize() != 9)
             return;
         ItemStack item = event.getInventory().getItem(0);
@@ -202,5 +255,9 @@ public final class EdenMagnetPlugin extends JavaPlugin implements Listener {
             meta.getPersistentDataContainer().set(magnetKey, PersistentDataType.BYTE_ARRAY, new byte[0]);
         });
         return item;
+    }
+
+    public MagnetRunner magnetRunner() {
+        return magnetRunner;
     }
 }
